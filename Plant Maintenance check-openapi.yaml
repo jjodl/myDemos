@@ -1,0 +1,62 @@
+swagger: '2.0'
+info:
+  title: Plant Maintenance check
+  version: 1.0.0
+  description: ''
+basePath: /Plant_Maintenance_check
+paths:
+  /Maintenance:
+    post:
+      tags:
+        - Maintenance
+      summary: Create a new instance of the model and persist it into the data source.
+      operationId: Maintenance.create
+      parameters:
+        - name: data
+          in: body
+          description: Model instance data
+          required: false
+          schema:
+            description: Model instance data
+            $ref: '#/definitions/Maintenance'
+      responses:
+        '201':
+          description: Request was successful
+          schema:
+            $ref: '#/definitions/Maintenance'
+      deprecated: false
+      security:
+        - basicAuth: []
+tags:
+  - name: Maintenance
+host: >-
+  ace-designer-demo-designer-https-cp4i.mycluster-sjc03-b3c-16x64-b4105416b23e5bfa64d27fe9b8df7039-0000.sjc03.containers.appdomain.cloud
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+definitions:
+  Maintenance:
+    properties:
+      Name:
+        type: string
+      eMail:
+        type: string
+      DescriptionOfProblem:
+        type: string
+      PhotoofPart:
+        type: string
+      CaseReference:
+        type: string
+      ContactID:
+        type: string
+      CaseSYS:
+        type: string
+    required:
+      - CaseReference
+    additionalProperties: false
+securityDefinitions:
+  basicAuth:
+    type: basic
