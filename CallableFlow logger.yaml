@@ -1,0 +1,105 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: api
+  trigger-interfaces:
+    trigger-interface-1:
+      triggers:
+        createCallableFlow:
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          input-context:
+            data: CallableFlow
+          output-context:
+            data: CallableFlow
+      options:
+        resources:
+          - business-object: CallableFlow
+            model:
+              $ref: '#/models/CallableFlow'
+            triggers:
+              create: createCallableFlow
+      type: api-trigger
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: request
+      connector-type: iiboc
+      account-name: Account 2
+      actions:
+        INVOKEACTION: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - custom-action:
+              name: Callable flow Invoke
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              action: INVOKEACTION
+              map:
+                mappings:
+                  - application:
+                      template: MyCallableFlows
+                  - endpoint:
+                      template: OnPremLoggerCF
+                  - message:
+                      mappings:
+                        - aMessage:
+                            template: '{{$Request.Message}}'
+                        - aName:
+                            template: '{{$Request.Name}}'
+                customSchemas:
+                  properties.`message`:
+                    type: object
+                    properties:
+                      aName:
+                        type: string
+                      aMessage:
+                        type: string
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - response:
+              name: response-1
+              reply-maps:
+                - title: CallableFlow successfully created
+                  status-code: 201
+                  map:
+                    $map: http://ibm.com/appconnect/map/v1
+                    input:
+                      - variable: Request
+                        $ref: '#/trigger/payload'
+                      - variable: CallableflowInvoke
+                        $ref: '#/node-output/Callable flow Invoke/response/payload'
+                      - variable: flowDetails
+                        $ref: '#/flowDetails'
+                    mappings:
+                      - Name:
+                          template: '{{$Request.Name}}'
+                      - Status:
+                          template: '{{$CallableflowInvoke.message.status}}'
+                  input: []
+  name: CallableFlow logger
+models:
+  CallableFlow:
+    name: CallableFlow
+    properties:
+      Name:
+        required: false
+        id: true
+        type: string
+      Message:
+        required: false
+        id: false
+        type: string
+      Status:
+        required: false
+        id: false
+        type: string
+    plural: CallableFlow
+    description: ' '
+    operations:
+      create: '#/integration/assemblies/assembly-1'
