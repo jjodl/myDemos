@@ -1,0 +1,126 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: api
+  trigger-interfaces:
+    trigger-interface-1:
+      triggers:
+        createKafkaProducer:
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          input-context:
+            data: KafkaProducer
+          output-context:
+            data: KafkaProducer
+      options:
+        resources:
+          - business-object: KafkaProducer
+            model:
+              $ref: '#/models/KafkaProducer'
+            triggers:
+              create: createKafkaProducer
+      type: api-trigger
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: message
+      connector-type: kafka
+      account-name: Account 1
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - create-action:
+              name: Kafka Send message
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              map:
+                mappings:
+                  - Payload:
+                      template: '{{$Request}}'
+                  - Topic:
+                      template: chopper1.mytopic
+                  - key:
+                      template: '{{$Request.id}}'
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - response:
+              name: response-1
+              reply-maps:
+                - title: widget successfully created
+                  status-code: '201'
+                  map:
+                    $map: http://ibm.com/appconnect/map/v1
+                    input:
+                      - variable: Request
+                        $ref: '#/trigger/payload'
+                      - variable: KafkaSendmessage
+                        $ref: '#/node-output/Kafka Send message/response/payload'
+                    mappings:
+                      - id:
+                          template: '{{$KafkaSendmessage.objectId}}'
+                  input:
+                    - variable: Request
+                      $ref: '#/trigger/payload'
+                    - variable: KafkaSendmessage
+                      $ref: '#/node-output/Kafka Send message/response/payload'
+  name: KafkaProducerDemo
+models:
+  KafkaProducer:
+    name: KafkaProducer
+    properties:
+      id:
+        required: false
+        id: true
+        type: string
+      name:
+        required: false
+        id: false
+        type: string
+      amount:
+        required: false
+        id: false
+        type: number
+      description:
+        required: false
+        id: false
+        type: string
+    plural: KafkaProducer
+    description: ' '
+    operations:
+      create: '#/integration/assemblies/assembly-1'
+x-ibm-configuration:
+  gateway: datapower-api-gateway
+  type: rest
+  phase: realized
+  enforced: true
+  testable: true
+  cors:
+    enabled: true
+  assembly:
+    execute:
+      - invoke:
+          title: Invoke flow
+          version: 2.0.0
+          verb: keep
+          target-url: $(app-connect-designer-url)$(request.path)
+          follow-redirects: false
+          timeout: 60
+          parameter-control:
+            type: blacklist
+          header-control:
+            type: blacklist
+          inject-proxy-headers: true
+          username: FsDq02LK
+          password: D5QPhGyMimk1FvEtl4r0dZ93K2wS8UXN
+  properties:
+    app-connect-designer-url:
+      description: The URL of the App Connect Designer Api
+      encoded: false
+      value: >-
+        https://ace-designer-designer-https-cp4i-ace.jgrocp47cp4i20212-dcd557ed086a97d77c2297a53c025612-0000.us-east.containers.appdomain.cloud
