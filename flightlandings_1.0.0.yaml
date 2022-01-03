@@ -1,0 +1,88 @@
+asyncapi: 2.1.0
+info:
+  version: 1.0.0
+  title: Flight Landings
+  x-ibm-name: flightlandings
+channels:
+  FLIGHT.LANDINGS:
+    subscribe:
+      message:
+        schemaFormat: application/vnd.apache.avro+yaml;version=1.9.0
+        payload:
+          type: record
+          name: FlightLanding
+          doc: >-
+            Events emitted when a flight lands. Events include basic information
+            about the flight.
+          fields:
+            - name: eventid
+              type:
+                type: string
+            - name: flight
+              type:
+                type: string
+              doc: ID for the flight that has landed
+            - name: terminal
+              type:
+                type: string
+              doc: which terminal the flight has landed at
+            - name: passengers
+              type:
+                type: int
+              doc: number of passengers on the flight
+        contentType: application/json
+servers:
+  cluster:
+    url: $(bootstrapServerAddress)
+    protocol: kafka-secure
+    security:
+      - X-IBM-Client-Id: []
+components:
+  securitySchemes:
+    X-IBM-Client-Id:
+      type: plain
+      description: The credential provided should be in SASL-PLAIN format
+x-ibm-configuration:
+  enforced: true
+  phase: realized
+  gateway: event-gateway
+  assembly:
+    execute:
+      - invoke-kafka:
+          title: invoke-kafka
+          version: 1.0.0
+          bootstrap.servers: $(bootstrapServerAddress)
+          sasl.mechanism: SCRAM-SHA-512
+          security.protocol: SASL_SSL
+          username: ace-es-user-scram
+          password: YGRHxozQWzTJ
+          transport.cacert: |
+            -----BEGIN CERTIFICATE-----
+            MIIDOzCCAiOgAwIBAgIUGpp8NnAqaJARB9WH7tr7b+4g87cwDQYJKoZIhvcNAQEL
+            BQAwLTETMBEGA1UECgwKaW8uc3RyaW16aTEWMBQGA1UEAwwNY2x1c3Rlci1jYSB2
+            MDAeFw0yMTExMDUyMDQ5MjlaFw0yMjExMDUyMDQ5MjlaMC0xEzARBgNVBAoMCmlv
+            LnN0cmltemkxFjAUBgNVBAMMDWNsdXN0ZXItY2EgdjAwggEiMA0GCSqGSIb3DQEB
+            AQUAA4IBDwAwggEKAoIBAQDDaZi9KNcr/TJDaPHJEggIeQjt/Caiokxh77OpYlxH
+            ZjL2OJ/VYGrKxD89QrcnEf4HC2XL0GKrqj4O8ZnRyOIgTGq1fDZfFIF7GRH5Kwpe
+            +0OZyrAsZ15SdJtBZGVaGfguAv11YZ5pAxLYPa1P05N5WcUJU5acDKXlHE7EgX+h
+            fxSKorq4KjI++ww0hw/7lcn+kCO1vL+DfxsYo2kuAx8vRtu5cBH/a2ePB/Lfru8g
+            tIaBxHZYpT6uEAxev0FezsiCoxV+nkB3XNFKqGmzYkPzBPB+qUsr8bXDQlU1kCrX
+            cMaKG3ZlAqMGQguK7uLy/lKUwG1hN4/Q6gx9GQnsvITJAgMBAAGjUzBRMB0GA1Ud
+            DgQWBBR2lS+uqFsaM9pAHg/ujTVmx2dKtDAfBgNVHSMEGDAWgBR2lS+uqFsaM9pA
+            Hg/ujTVmx2dKtDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBt
+            G8WoqvYfepCyVtrQcqGwWDKK3LS2ZGOVl6f7HPntRuPyOi32S8oIcKHoS4kKhicY
+            o+DACbpx7GbCA+VhJ1rUF4flWmEqQ/h+erNZZZ9ACRuUQzknElW0sDtRy06TeKQz
+            vn1QAmujBDHBEFx7zMzId4vMnAqJ8oN/mI7QnqzfFTTpnfToudpAFWZAqHDA1WlF
+            SOXzeGoQtLQJ6Md73TE1As2prNzsI9GfeazipfaPBp57eRKtdeQMIbFHeklIjp0a
+            bTO/2vQVtPhhF74ts9sftkqGFUfeFmkMzRt6dBK8h1sGvUypk6tWPofBq25aXYPa
+            hYkCwUgl3LcwP9tZWnWa
+            -----END CERTIFICATE-----
+          clusterconfigid: 0456b760-c70c-4add-9b1a-61884d6e253d
+  properties:
+    bootstrapServerAddress:
+      value: >-
+        es-demo-kafka-bootstrap-cp4i-es.mydemo-sjc04-b4105416b23e5bfa64d27fe9b8df7039-0000.sjc04.containers.appdomain.cloud:443
+  type: asyncapi
+  testable: false
+  cors:
+    enabled: false
