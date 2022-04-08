@@ -1,0 +1,405 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: api
+  trigger-interfaces:
+    trigger-interface-1:
+      triggers:
+        createMaintenance:
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          input-context:
+            data: Maintenance
+          output-context:
+            data: Maintenance
+      options:
+        resources:
+          - business-object: Maintenance
+            model:
+              $ref: '#/models/Maintenance'
+            triggers:
+              create: createMaintenance
+      type: api-trigger
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: Contact
+      connector-type: salesforce
+      account-name: mySF
+      actions:
+        RETRIEVEALL: {}
+    action-interface-2:
+      type: api-action
+      business-object: Case
+      connector-type: salesforce
+      account-name: mySF
+      actions:
+        CREATE: {}
+    action-interface-3:
+      type: api-action
+      business-object: Account
+      connector-type: salesforce
+      account-name: mySF
+      actions:
+        RETRIEVEALL: {}
+    action-interface-4:
+      type: api-action
+      business-object: Attachment
+      connector-type: salesforce
+      account-name: mySF
+      actions:
+        CREATE: {}
+    action-interface-5:
+      type: api-action
+      business-object: incident
+      connector-type: servicenow
+      account-name: mySNow
+      actions:
+        CREATE: {}
+    action-interface-6:
+      type: api-action
+      business-object: sys_attachment
+      connector-type: servicenow
+      account-name: mySNow
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - retrieve-action:
+              name: Salesforce Retrieve contacts
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              filter:
+                where:
+                  Name: '{{$Request.Name}}'
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                limit: 1
+              allow-truncation: false
+              pagination-type: TOKEN
+              allow-empty-output: false
+          - retrieve-action:
+              name: Salesforce Retrieve accounts
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-3'
+              filter:
+                where:
+                  Id: '{{$SalesforceRetrievecontacts.AccountId}}'
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                limit: 1
+              allow-truncation: false
+              pagination-type: TOKEN
+              allow-empty-output: false
+          - create-action:
+              name: Salesforce Create case
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-2'
+              map:
+                mappings:
+                  - AccountId:
+                      template: '{{$SalesforceRetrieveaccounts.Id}}'
+                  - ContactId:
+                      template: '{{$SalesforceRetrievecontacts.Id}}'
+                  - Description:
+                      template: '{{$Request.DescriptionOfProblem}}'
+                  - Origin:
+                      template: Email
+                  - Reason:
+                      template: Breakdown
+                  - Status:
+                      template: New
+                  - Subject:
+                      template: >-
+                        Maintenance guidelines checklist -
+                        {{$SalesforceRetrievecontacts.CreatedDate}}
+                  - SuppliedCompany:
+                      template: '{{$SalesforceRetrieveaccounts.Name}}'
+                  - SuppliedName:
+                      template: '{{$SalesforceRetrievecontacts.Name}}'
+                  - Type:
+                      template: Mechanical
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceRetrieveaccounts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      accounts/response/payload
+                  - variable: SalesforceRetrieveaccountsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve accounts/response'
+          - create-action:
+              name: Salesforce Create attachment
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-4'
+              map:
+                mappings:
+                  - Body:
+                      template: '{{$Request.PhotoofPart}}'
+                  - ContentType:
+                      template: image/jpeg
+                  - Description:
+                      template: This is the photo of the bad part
+                  - Name:
+                      template: Problem.jpg
+                  - ParentId:
+                      template: '{{$SalesforceCreatecase.Id}}'
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceRetrieveaccounts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      accounts/response/payload
+                  - variable: SalesforceRetrieveaccountsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve accounts/response'
+                  - variable: SalesforceCreatecase
+                    $ref: '#/node-output/Salesforce Create case/response/payload'
+          - create-action:
+              name: ServiceNow Create incident
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-5'
+              map:
+                mappings:
+                  - caller_id:
+                      template: 6816f79cc0a8016401c5a33be04be441
+                  - description:
+                      template: >-
+                        Description: Detail info on this -
+                        {{$Request.DescriptionOfProblem}}
+                  - short_description:
+                      template: 'Account Description: {{$Request.DescriptionOfProblem}}'
+                  - work_notes:
+                      template: 'Work Notes:  Will start once assigned '
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceRetrieveaccounts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      accounts/response/payload
+                  - variable: SalesforceRetrieveaccountsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve accounts/response'
+                  - variable: SalesforceCreatecase
+                    $ref: '#/node-output/Salesforce Create case/response/payload'
+                  - variable: SalesforceCreateattachment
+                    $ref: >-
+                      #/node-output/Salesforce Create
+                      attachment/response/payload
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - create-action:
+              name: ServiceNow Create attachment
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-6'
+              map:
+                mappings:
+                  - AttachmentOwnerId:
+                      template: '{{$ServiceNowCreateincident.sys_id}}'
+                  - AttachmentOwnerType:
+                      template: incident
+                  - FileContent:
+                      template: '{{$Request.PhotoofPart}}'
+                  - file_name:
+                      template: PartPhoto.jpg
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceRetrieveaccounts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      accounts/response/payload
+                  - variable: SalesforceRetrieveaccountsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve accounts/response'
+                  - variable: SalesforceCreatecase
+                    $ref: '#/node-output/Salesforce Create case/response/payload'
+                  - variable: SalesforceCreateattachment
+                    $ref: >-
+                      #/node-output/Salesforce Create
+                      attachment/response/payload
+                  - variable: ServiceNowCreateincident
+                    $ref: '#/node-output/ServiceNow Create incident/response/payload'
+          - response:
+              name: response-1
+              reply-maps:
+                - title: Maintenance successfully created
+                  status-code: '201'
+                  map:
+                    $map: http://ibm.com/appconnect/map/v1
+                    input:
+                      - variable: Request
+                        $ref: '#/trigger/payload'
+                      - variable: SalesforceRetrievecontacts
+                        $ref: >-
+                          #/node-output/Salesforce Retrieve
+                          contacts/response/payload
+                      - variable: SalesforceRetrievecontactsMetadata
+                        $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                      - variable: SalesforceRetrieveaccounts
+                        $ref: >-
+                          #/node-output/Salesforce Retrieve
+                          accounts/response/payload
+                      - variable: SalesforceRetrieveaccountsMetadata
+                        $ref: '#/node-output/Salesforce Retrieve accounts/response'
+                      - variable: SalesforceCreatecase
+                        $ref: '#/node-output/Salesforce Create case/response/payload'
+                      - variable: SalesforceCreateattachment
+                        $ref: >-
+                          #/node-output/Salesforce Create
+                          attachment/response/payload
+                      - variable: ServiceNowCreateincident
+                        $ref: >-
+                          #/node-output/ServiceNow Create
+                          incident/response/payload
+                      - variable: ServiceNowCreateattachment
+                        $ref: >-
+                          #/node-output/ServiceNow Create
+                          attachment/response/payload
+                    mappings:
+                      - CaseReference:
+                          template: '{{$SalesforceCreatecase.Id}}'
+                      - Name:
+                          template: '{{$Request.Name}}'
+                  input:
+                    - variable: Request
+                      $ref: '#/trigger/payload'
+                    - variable: SalesforceRetrievecontacts
+                      $ref: >-
+                        #/node-output/Salesforce Retrieve
+                        contacts/response/payload
+                    - variable: SalesforceRetrievecontactsMetadata
+                      $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                    - variable: SalesforceRetrieveaccounts
+                      $ref: >-
+                        #/node-output/Salesforce Retrieve
+                        accounts/response/payload
+                    - variable: SalesforceRetrieveaccountsMetadata
+                      $ref: '#/node-output/Salesforce Retrieve accounts/response'
+                    - variable: SalesforceCreatecase
+                      $ref: '#/node-output/Salesforce Create case/response/payload'
+                    - variable: SalesforceCreateattachment
+                      $ref: >-
+                        #/node-output/Salesforce Create
+                        attachment/response/payload
+                    - variable: ServiceNowCreateincident
+                      $ref: >-
+                        #/node-output/ServiceNow Create
+                        incident/response/payload
+                    - variable: ServiceNowCreateattachment
+                      $ref: >-
+                        #/node-output/ServiceNow Create
+                        attachment/response/payload
+  name: Plant Maintenance check
+models:
+  Maintenance:
+    name: Maintenance
+    properties:
+      Name:
+        required: false
+        id: false
+        type: string
+      eMail:
+        required: false
+        id: false
+        type: string
+      DescriptionOfProblem:
+        required: false
+        id: false
+        type: string
+      PhotoofPart:
+        required: false
+        id: false
+        type: string
+      CaseReference:
+        required: false
+        id: true
+        type: string
+      ContactID:
+        required: false
+        id: false
+        type: string
+      CaseSYS:
+        required: false
+        id: false
+        type: string
+    plural: Maintenance
+    description: ' '
+    operations:
+      create: '#/integration/assemblies/assembly-1'
+x-ibm-configuration:
+  gateway: datapower-api-gateway
+  type: rest
+  phase: realized
+  enforced: true
+  testable: true
+  cors:
+    enabled: true
+  assembly:
+    execute:
+      - invoke:
+          title: Invoke flow
+          version: 2.0.0
+          verb: keep
+          target-url: $(app-connect-designer-url)$(request.path)
+          follow-redirects: false
+          timeout: 60
+          parameter-control:
+            type: blacklist
+          header-control:
+            type: blacklist
+          inject-proxy-headers: true
+          username: $(app-connect-designer-username)
+          password: $(app-connect-designer-password)
+  properties:
+    app-connect-designer-url:
+      description: The URL of the App Connect Designer API endpoint.
+      encoded: false
+      value: >-
+        https://ace-designer-ai-designer-https-cp4i-ace.mydemo-sjc04-b4105416b23e5bfa64d27fe9b8df7039-0000.sjc04.containers.appdomain.cloud
+    app-connect-designer-username:
+      description: >-
+        The username required for basic authentication to the App Connect
+        Designer API endpoint.
+      value: JRDdqP02
+    app-connect-designer-password:
+      description: >-
+        The password required for basic authentication to the App Connect
+        Designer API endpoint.
+      value: lHVRNuitLZq41WATDUC8pJ079aX2Y3OP

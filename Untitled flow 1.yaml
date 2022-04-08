@@ -1,0 +1,56 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: trigger-action
+  trigger-interfaces:
+    trigger-interface-1:
+      connector-type: kafka
+      type: event-trigger
+      triggers:
+        CREATED:
+          input-context:
+            data: message
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          options:
+            Topic: mydemo.toolkit-topic
+            parentFilter:
+              Topic: mydemo.toolkit-topic
+            subscription:
+              messageOffset: Earliest
+      account-name: mydemoKafka
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: worksheetRow
+      connector-type: googlesheet
+      account-name: myGSheets
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - create-action:
+              name: Google Sheets Create row
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              map:
+                mappings:
+                  - fields:
+                      mappings:
+                        - '1':
+                            template: 'Joe '
+                        - '2':
+                            template: Jodl
+                  - spreadsheetID:
+                      template: 17DeiMYToOvfm3dokP67ARJNbfKY_KysYh5jwXkSmPO0
+                  - worksheetID:
+                      template: 2022-POT lists
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Trigger
+                    $ref: '#/trigger/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+  name: Untitled flow 1
+models: {}

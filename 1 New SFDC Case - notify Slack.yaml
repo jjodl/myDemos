@@ -1,0 +1,47 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: trigger-action
+  trigger-interfaces:
+    trigger-interface-1:
+      connector-type: salesforce
+      type: event-trigger
+      triggers:
+        CREATED:
+          input-context:
+            data: Case
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          options: {}
+      account-name: mySF
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: message
+      connector-type: slack
+      account-name: myDemo
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - create-action:
+              name: Slack Create message
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              map:
+                mappings:
+                  - channel:
+                      template: C01D5L1TPPF
+                  - text:
+                      template: >-
+                        New Salesforce created -  {{$Trigger.CaseNumber}}  case
+                        id =  {{$Trigger.Id}} contact id = 
+                        {{$Trigger.ContactId}}  Account id = 
+                        {{$Trigger.AccountId}} 
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Trigger
+                    $ref: '#/trigger/payload'
+  name: 1 New SFDC Case - notify Slack
+models: {}

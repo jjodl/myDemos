@@ -1,0 +1,108 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: trigger-action
+  trigger-interfaces:
+    trigger-interface-1:
+      type: event-trigger
+      triggers:
+        CREATED:
+          input-context:
+            data: incident
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          options: {}
+      connector-type: servicenow
+      account-name: mySNow
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: message
+      connector-type: slack
+      account-name: myDemo
+      actions:
+        CREATE: {}
+    action-interface-2:
+      type: api-action
+      business-object: mxapiwo
+      connector-type: maximo
+      account-name: myDemo
+      actions:
+        CREATE: {}
+    action-interface-3:
+      type: api-action
+      business-object: message
+      connector-type: slack
+      account-name: myDemo
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - create-action:
+              name: Slack Create message
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              map:
+                mappings:
+                  - channel:
+                      template: C01D215PSG6
+                  - text:
+                      template: >-
+                        New Incident {{$Trigger.number}} created for \n Plant
+                        Maint check {{$Trigger.opened_at}}  {{$Trigger.company}}
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Trigger
+                    $ref: '#/trigger/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - create-action:
+              name: IBM Maximo Create work order
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-2'
+              map:
+                mappings:
+                  - description:
+                      template: '{{$Trigger.short_description}}'
+                  - siteid:
+                      template: BEDFORD
+                  - wonum:
+                      template: '{{$substring($Trigger.number , 5, 5)}}'
+                  - wopriority:
+                      expression: '$Trigger.urgency '
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Trigger
+                    $ref: '#/trigger/payload'
+                  - variable: SlackCreatemessage
+                    $ref: '#/node-output/Slack Create message/response/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - create-action:
+              name: Slack Create message 2
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-3'
+              map:
+                mappings:
+                  - channel:
+                      template: C01DYJ0T188
+                  - text:
+                      template: >-
+                        Work order created.  
+                        {{$IBMMaximoCreateworkorder.customUniqueId}}  Work order
+                        - {{$substring($Trigger.number , 5, 5)}}   {{$now()}} 
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Trigger
+                    $ref: '#/trigger/payload'
+                  - variable: SlackCreatemessage
+                    $ref: '#/node-output/Slack Create message/response/payload'
+                  - variable: IBMMaximoCreateworkorder
+                    $ref: >-
+                      #/node-output/IBM Maximo Create work
+                      order/response/payload
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+  name: 1 New SNow Incident - notify Slack - Create WO
+models: {}
