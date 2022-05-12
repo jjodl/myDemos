@@ -87,8 +87,8 @@ integration:
                 input:
                   - variable: Request
                     $ref: '#/trigger/payload'
-                  - variable: Setvariable
-                    $ref: '#/node-output/Set variable/response/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
                 limit: 1
               allow-truncation: false
               pagination-type: TOKEN
