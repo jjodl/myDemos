@@ -1,0 +1,355 @@
+$integration: http://ibm.com/appconnect/integration/v2/integrationFile
+integration:
+  type: api
+  trigger-interfaces:
+    trigger-interface-1:
+      triggers:
+        createCarRepairClaim:
+          assembly:
+            $ref: '#/integration/assemblies/assembly-1'
+          input-context:
+            data: CarRepairClaim
+          output-context:
+            data: CarRepairClaim
+      options:
+        resources:
+          - business-object: CarRepairClaim
+            model:
+              $ref: '#/models/CarRepairClaim'
+            triggers:
+              create: createCarRepairClaim
+      type: api-trigger
+  action-interfaces:
+    action-interface-1:
+      type: api-action
+      business-object: Case
+      connector-type: salesforce
+      account-name: Account 1
+      actions:
+        CREATE: {}
+    action-interface-2:
+      type: api-action
+      business-object: Attachment
+      connector-type: salesforce
+      account-name: Account 1
+      actions:
+        CREATE: {}
+    action-interface-5:
+      type: api-action
+      business-object: Contact
+      connector-type: salesforce
+      account-name: Account 1
+      actions:
+        RETRIEVEALL: {}
+    action-interface-7:
+      type: api-action
+      business-object: CaseComment
+      connector-type: salesforce
+      account-name: Account 1
+      actions:
+        CREATE: {}
+  assemblies:
+    assembly-1:
+      assembly:
+        execute:
+          - if:
+              name: If
+              input:
+                - variable: Request
+                  $ref: '#/trigger/payload'
+                - variable: Setvariable
+                  $ref: '#/node-output/Set variable/response/payload'
+              branch:
+                - condition:
+                    '{{$Request.PhotoOfCar}}':
+                      '=': ''
+                  execute: []
+                  completion-action:
+                    terminate:
+                      error:
+                        input:
+                          - variable: Request
+                            $ref: '#/trigger/payload'
+                          - variable: Setvariable
+                            $ref: '#/node-output/Set variable/response/payload'
+                        message: There is no car in this image, please resubmit
+                        status-code: 400
+              else:
+                execute: []
+              output-schema: {}
+          - retrieve-action:
+              name: Salesforce Retrieve contacts
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-5'
+              filter:
+                where:
+                  Name: Andy Young
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: Setvariable
+                    $ref: '#/node-output/Set variable/response/payload'
+                limit: 1
+              allow-truncation: false
+              pagination-type: TOKEN
+              allow-empty-output: false
+          - create-action:
+              name: Salesforce Create case
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-1'
+              map:
+                mappings:
+                  - ContactId:
+                      template: '{{$SalesforceRetrievecontacts.Id}}'
+                  - Description:
+                      template: '{{$Request.DescriptionOfDamage}}'
+                  - EngineeringReqNumber__c:
+                      template: '{{$Request.LicensePlate}}'
+                  - Origin:
+                      template: Web
+                  - Priority:
+                      template: Medium
+                  - Reason:
+                      template: Breakdown
+                  - Status:
+                      template: New
+                  - Subject:
+                      template: Car Breakdown - {{$Request.LicensePlate}}
+                  - SuppliedCompany:
+                      template: ACMELeasing
+                  - SuppliedEmail:
+                      template: '{{$Request.eMail}}'
+                  - SuppliedName:
+                      template: '{{$Request.Name}}'
+                  - Type:
+                      template: Mechanical
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: Setvariable
+                    $ref: '#/node-output/Set variable/response/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+          - create-action:
+              name: Salesforce Create attachment
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-2'
+              map:
+                mappings:
+                  - Body:
+                      template: '{{$Request.PhotoOfCar}}'
+                  - ContentType:
+                      template: image/jpeg
+                  - Description:
+                      template: >-
+                        This is the photo of the vehicle with license plate
+                        {{$Request.LicensePlate}}
+                  - Name:
+                      template: CarPicture.jpg
+                  - ParentId:
+                      template: '{{$SalesforceCreatecase.Id}}'
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceCreatecase
+                    $ref: '#/node-output/Salesforce Create case/response/payload'
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - create-action:
+              name: Salesforce Create case comment
+              target:
+                $ref: '#/integration/action-interfaces/action-interface-7'
+              map:
+                mappings:
+                  - CommentBody:
+                      template: '{{$Request.DescriptionOfDamage}}'
+                  - IsPublished:
+                      expression: 'true'
+                  - ParentId:
+                      template: '{{$SalesforceCreatecase.Id}}'
+                $map: http://ibm.com/appconnect/map/v1
+                input:
+                  - variable: Request
+                    $ref: '#/trigger/payload'
+                  - variable: SalesforceRetrievecontacts
+                    $ref: >-
+                      #/node-output/Salesforce Retrieve
+                      contacts/response/payload
+                  - variable: SalesforceRetrievecontactsMetadata
+                    $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                  - variable: SalesforceCreatecase
+                    $ref: '#/node-output/Salesforce Create case/response/payload'
+                  - variable: SalesforceCreateattachment
+                    $ref: >-
+                      #/node-output/Salesforce Create
+                      attachment/response/payload
+                  - variable: flowDetails
+                    $ref: '#/flowDetails'
+          - response:
+              name: response-1
+              reply-maps:
+                - title: CarRepairClaim successfully created
+                  status-code: '201'
+                  map:
+                    $map: http://ibm.com/appconnect/map/v1
+                    input:
+                      - variable: Request
+                        $ref: '#/trigger/payload'
+                      - variable: Setvariable
+                        $ref: '#/node-output/Set variable/response/payload'
+                      - variable: SalesforceRetrievecontacts
+                        $ref: >-
+                          #/node-output/Salesforce Retrieve
+                          contacts/response/payload
+                      - variable: SalesforceRetrievecontactsMetadata
+                        $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                      - variable: SalesforceCreatecase
+                        $ref: '#/node-output/Salesforce Create case/response/payload'
+                      - variable: SalesforceCreateattachment
+                        $ref: >-
+                          #/node-output/Salesforce Create
+                          attachment/response/payload
+                      - variable: IBMWatsonToneAnalyzerGettoneanalysis
+                        $ref: >-
+                          #/node-output/IBM Watson Tone Analyzer Get tone
+                          analysis/response/payload
+                      - variable: SalesforceCreatecasecomment
+                        $ref: >-
+                          #/node-output/Salesforce Create case
+                          comment/response/payload
+                    mappings:
+                      - CaseReference:
+                          template: '{{$SalesforceCreatecase.Id}}'
+                      - EstimatedBill:
+                          expression: '300'
+                      - EstimatedDays:
+                          expression: '3'
+                      - LicensePlate:
+                          template: '{{$Request.LicensePlate}}'
+                      - Name:
+                          template: '{{$Request.Name}}'
+                      - eMail:
+                          template: '{{$Request.eMail}}'
+                  input:
+                    - variable: Request
+                      $ref: '#/trigger/payload'
+                    - variable: Setvariable
+                      $ref: '#/node-output/Set variable/response/payload'
+                    - variable: SalesforceRetrievecontacts
+                      $ref: >-
+                        #/node-output/Salesforce Retrieve
+                        contacts/response/payload
+                    - variable: SalesforceRetrievecontactsMetadata
+                      $ref: '#/node-output/Salesforce Retrieve contacts/response'
+                    - variable: SalesforceCreatecase
+                      $ref: '#/node-output/Salesforce Create case/response/payload'
+                    - variable: SalesforceCreateattachment
+                      $ref: >-
+                        #/node-output/Salesforce Create
+                        attachment/response/payload
+                    - variable: IBMWatsonToneAnalyzerGettoneanalysis
+                      $ref: >-
+                        #/node-output/IBM Watson Tone Analyzer Get tone
+                        analysis/response/payload
+                    - variable: SalesforceCreatecasecomment
+                      $ref: >-
+                        #/node-output/Salesforce Create case
+                        comment/response/payload
+  name: Car Insurance Cognitive API Lab Short JRJ
+models:
+  CarRepairClaim:
+    name: CarRepairClaim
+    properties:
+      Name:
+        required: false
+        id: false
+        type: string
+      eMail:
+        required: false
+        id: false
+        type: string
+      LicensePlate:
+        required: false
+        id: false
+        type: string
+      DescriptionOfDamage:
+        required: false
+        id: false
+        type: string
+      PhotoOfCar:
+        required: false
+        id: false
+        type: string
+      CaseReference:
+        required: false
+        id: true
+        type: string
+      ContactID:
+        required: false
+        id: false
+        type: string
+      EstimatedDays:
+        required: false
+        id: false
+        type: number
+      EstimatedBill:
+        required: false
+        id: false
+        type: number
+    plural: CarRepairClaim
+    description: ' '
+    operations:
+      create: '#/integration/assemblies/assembly-1'
+    interactions: {}
+x-ibm-configuration:
+  gateway: datapower-api-gateway
+  type: rest
+  phase: realized
+  enforced: true
+  testable: true
+  cors:
+    enabled: true
+  assembly:
+    execute:
+      - invoke:
+          title: Invoke flow
+          version: 2.0.0
+          verb: keep
+          target-url: $(app-connect-designer-url)$(request.path)
+          follow-redirects: false
+          timeout: 60
+          parameter-control:
+            type: blacklist
+          header-control:
+            type: blacklist
+          inject-proxy-headers: true
+          username: $(app-connect-designer-username)
+          password: $(app-connect-designer-password)
+  properties:
+    app-connect-designer-url:
+      description: The URL of the App Connect Designer API endpoint.
+      encoded: false
+      value: >-
+        https://ace-designer-ai-designer-https-cp4i-ace.mydemo-sjc04-b4105416b23e5bfa64d27fe9b8df7039-0000.sjc04.containers.appdomain.cloud
+    app-connect-designer-username:
+      description: >-
+        The username required for basic authentication to the App Connect
+        Designer API endpoint.
+      value: wa59rybi
+    app-connect-designer-password:
+      description: >-
+        The password required for basic authentication to the App Connect
+        Designer API endpoint.
+      value: ADtJhTcb462eYwC3X9ZlInGFu85UMdv0
